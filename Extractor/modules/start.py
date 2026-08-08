@@ -79,15 +79,20 @@ modes_button = [[
                 ]]
 
 
-custom_button = [[
-                  #InlineKeyboardButton("⚡ Pᴡ ⚡", callback_data="pwwp"),
-                  #InlineKeyboardButton("🔮 Aᴘᴘx 🔮", callback_data="appxwp"),
-                ],[
-                  InlineKeyboardButton("🎯 CʟᴀssPʟᴜs 🎯", callback_data="cpwp")
-                  # InlineKeyboardButton("🎓 CDS Jᴏᴜʀɴᴇʏ 🎓", callback_data="cds_journey_free")
-                ],[
-                  InlineKeyboardButton("𝐁 𝐀 𝐂 𝐊", callback_data="modes_")
-                ]]
+# ===== CUSTOM BUTTON (FULLY ACTIVE) =====
+custom_button = [
+    [
+        InlineKeyboardButton("⚡ Pᴡ ⚡", callback_data="pwwp"),
+        InlineKeyboardButton("🔮 Aᴘᴘx 🔮", callback_data="appxwp")
+    ],
+    [
+        InlineKeyboardButton("🎯 CʟᴀssPʟᴜs 🎯", callback_data="cpwp"),
+        InlineKeyboardButton("🎓 CDS Jᴏᴜʀɴᴇʏ 🎓", callback_data="cds_journey_free")
+    ],
+    [
+        InlineKeyboardButton("𝐁 𝐀 𝐂 𝐊", callback_data="modes_")
+    ]
+]
 
 button1 = [              
     [
@@ -706,6 +711,19 @@ async def handle_callback(client, query):
 
     elif query.data == "cw_":                       # ✅ NEW HANDLER
         await career_will(app, query.message)
+
+    # ===== CUSTOM BUTTON HANDLERS =====
+    elif query.data == "pwwp":
+        await pwwp_callback(client, query)  # यह पहले से है
+
+    elif query.data == "appxwp":
+        await appxwp_callback(client, query)  # यह पहले से है
+
+    elif query.data == "cpwp":
+        await cpwp_callback(client, query)  # यह पहले से है
+
+    elif query.data == "cds_journey_free":
+        await query.message.edit_text("🎓 **CDS Journey Free** – यह फीचर जल्द आ रहा है!")  # या आपका असली हैंडलर
 
   
 
