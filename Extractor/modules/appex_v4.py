@@ -4,6 +4,7 @@ import json
 import re
 import time
 import os
+import logging
 import cloudscraper
 import aiohttp
 import httpx
@@ -18,7 +19,6 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 from datetime import datetime
 import pytz
-import logging
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -50,11 +50,11 @@ def decode_base64(encoded_str):
     except:
         return ""
 
-# ---------- Async Fetch Helper ----------
+# ---------- Async Fetch Helper (Using aiohttp) ----------
 async def fetch(session, url, headers):
     """Fetch JSON from API asynchronously."""
     try:
-        async with session.get(url, headers=headers) as resp:
+        async with session.get(url, headers=headers, timeout=30) as resp:
             if resp.status != 200:
                 return {}
             text = await resp.text()
@@ -176,26 +176,32 @@ async def appex_v5_txt(app, message, api, name):
             else:
                 # It's ID*Password
                 email, password = parts
-                # Login using async httpx
-                headers = {
+                # Login using async httpx (primary)
+                login_headers = {
                     "Auth-Key": "appxapi",
                     "User-Id": "-2",
                     "Language": "en",
                     "Content-Type": "application/x-www-form-urlencoded",
-                    "User-Agent": "okhttp/4.9.1"
+                    "User-Agent": "okhttp/4.9.1",
+                    "Host": api_base.replace("https://", ""),
+                    "Accept-Encoding": "gzip, deflate",
+                    "Connection": "Keep-Alive"
                 }
                 data = {"email": email, "password": password}
                 try:
-                    async with httpx.AsyncClient() as client:
-                        resp = await client.post(f"{api_base}/post/userLogin", headers=headers, data=data, timeout=30)
+                    async with httpx.AsyncClient(timeout=30.0) as client:
+                        resp = await client.post(f"{api_base}/post/userLogin", headers=login_headers, data=data)
+                        if resp.status_code not in (200, 203):
+                            await message.reply_text(f"❌ Login failed. Status: {resp.status_code}")
+                            return
                         resp_json = resp.json()
                         if resp_json.get("status") not in (200, 203):
-                            await message.reply_text("❌ Login failed. Check credentials.")
+                            await message.reply_text("❌ Login failed. Invalid credentials or server error.")
                             return
                         token = resp_json["data"]["token"]
                         userid = str(resp_json["data"]["userid"])
                 except Exception as e:
-                    await message.reply_text(f"❌ Login error: {str(e)}")
+                    await message.reply_text(f"❌ Login error (HTTPX): {str(e)}")
                     return
     else:
         # Assume raw_text is token
@@ -210,29 +216,48 @@ async def appex_v5_txt(app, message, api, name):
             userid = userid_input.text.strip()
             await userid_input.delete()
 
-    # Headers for API calls
+    # Headers for API calls (Must match mobile app exactly)
     hdr1 = {
         "Client-Service": "Appx",
         "source": "website",
         "Auth-Key": "appxapi",
         "Authorization": token,
-        "User-ID": userid
+        "User-ID": userid,
+        "User-Agent": "okhttp/4.9.1",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Encoding": "gzip, deflate",
+        "Connection": "Keep-Alive",
+        "Host": api_base.replace("https://", "")
     }
 
-    # Fetch courses using cloudscraper in thread to avoid blocking
+    # --- FETCH COURSES WITH FALLBACK (SCRAPER FIX) ---
+    mc1 = None
     loop = asyncio.get_event_loop()
-    scraper = cloudscraper.create_scraper()
-    try:
-        mc1 = await loop.run_in_executor(
-            None,
-            lambda: scraper.get(f"{api_base}/get/mycoursev2?userid={userid}", headers=hdr1).json()
-        )
-    except Exception as e:
-        await message.reply_text(f"❌ Error fetching courses: {str(e)}")
-        return
 
-    if not mc1.get("data"):
-        await message.reply_text("❌ No batches found.")
+    # Method 1: Try httpx first (faster, less prone to block if headers are correct)
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.get(f"{api_base}/get/mycoursev2?userid={userid}", headers=hdr1)
+            if resp.status_code == 200:
+                mc1 = resp.json()
+    except Exception as e:
+        logger.warning(f"HTTPX failed for course list: {e}. Falling back to cloudscraper...")
+
+    # Method 2: Fallback to cloudscraper (if httpx fails or returns 403)
+    if not mc1 or mc1.get("status") != 200:
+        try:
+            scraper = cloudscraper.create_scraper()
+            # run in thread to avoid blocking
+            mc1 = await loop.run_in_executor(
+                None,
+                lambda: scraper.get(f"{api_base}/get/mycoursev2?userid={userid}", headers=hdr1).json()
+            )
+        except Exception as e:
+            await message.reply_text(f"❌ Both scrapers failed. Cannot fetch courses: {str(e)}")
+            return
+
+    if not mc1 or not mc1.get("data"):
+        await message.reply_text("❌ No batches found or data empty.")
         return
 
     # Display batches
@@ -261,17 +286,18 @@ async def appex_v5_txt(app, message, api, name):
         course_info = next((c for c in mc1["data"] if str(c['id']) == batch_id), {})
         course_name = course_info.get("course_name", "Course").replace("/", "_").replace(":", "_")
 
-        # Try to get course details via course_by_id API
+        # Try to get course details via course_by_id API (using scraper fallback)
+        r_json = None
         try:
-            r_json = await loop.run_in_executor(
-                None,
-                lambda: scraper.get(f"{api_base}/get/course_by_id?id={batch_id}", headers=hdr1).json()
-            )
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                resp = await client.get(f"{api_base}/get/course_by_id?id={batch_id}", headers=hdr1)
+                if resp.status_code == 200:
+                    r_json = resp.json()
         except:
-            r_json = {}
+            pass
 
-        # If course_by_id fails, fallback to v2_new (folder-wise)
-        if not r_json.get("data"):
+        if not r_json or not r_json.get("data"):
+            # Fallback to v2_new (folder-wise)
             await v2_new(
                 app, message, token, userid, hdr1, app_name,
                 batch_id, api_base, course_name,
