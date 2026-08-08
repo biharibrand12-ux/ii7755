@@ -79,49 +79,38 @@ modes_button = [[
                 ]]
 
 
-custom_button = [[
-                  #InlineKeyboardButton("⚡ Pᴡ ⚡", callback_data="pwwp"),
-                  #InlineKeyboardButton("🔮 Aᴘᴘx 🔮", callback_data="appxwp"),
-                ],[
-                  InlineKeyboardButton("🎯 CʟᴀssPʟᴜs 🎯", callback_data="cpwp")
-                  # InlineKeyboardButton("🎓 CDS Jᴏᴜʀɴᴇʏ 🎓", callback_data="cds_journey_free")
-                ],[
-                  InlineKeyboardButton("𝐁 𝐀 𝐂 𝐊", callback_data="modes_")
-                ]]
+# ===== CUSTOM BUTTON (FULLY ACTIVE) =====
+custom_button = [
+    [
+        InlineKeyboardButton("⚡ Pᴡ ⚡", callback_data="pwwp"),
+        InlineKeyboardButton("🔮 Aᴘᴘx 🔮", callback_data="appxwp")
+    ],
+    [
+        InlineKeyboardButton("🎯 CʟᴀssPʟᴜs 🎯", callback_data="cpwp"),
+        InlineKeyboardButton("🎓 CDS Jᴏᴜʀɴᴇʏ 🎓", callback_data="cds_journey_free")
+    ],
+    [
+        InlineKeyboardButton("𝐁 𝐀 𝐂 𝐊", callback_data="modes_")
+    ]
+]
 
 button1 = [              
-                [
-                    #InlineKeyboardButton("👑 Aᴘɴɪ Kᴀᴋsʜᴀ", callback_data="ak_"),
-                    #InlineKeyboardButton("👑 Aᴅᴅᴀ 𝟸𝟺𝟽", callback_data="adda_")
-                ],
-                [
-                    #InlineKeyboardButton("👑 Kʜᴀɴ Gs", callback_data="khan_") 
-                ],
-                [
-                    InlineKeyboardButton("👑 CʟᴀssPʟᴜs", callback_data="classplus_"),
-                    InlineKeyboardButton("👑 Uᴛᴋᴀʀsʜ", callback_data="utkarsh_")
-                ],
-                [
-                    InlineKeyboardButton("👑 Appx Login", callback_data="manual_appx"),
-                    InlineKeyboardButton("👑 Sᴛᴜᴅʏ IQ", callback_data="iq_")
-                ],
-                [
-                    #InlineKeyboardButton("👑 Kᴅ Cᴀᴍᴘᴜs", callback_data="kdlive_"),
-                    # InlineKeyboardButton("👑 Rᴀɴᴋᴇʀs Gᴜʀᴜᴋᴜʟ", callback_data="maintainer_")
-                    # InlineKeyboardButton("👑 CDS Jᴏᴜʀɴᴇʏ", callback_data="cds_journey")
-                ],
-                [
-                    #InlineKeyboardButton("👑 Mʏ Pᴀᴛʜsʜᴀʟᴀ", callback_data="my_pathshala_"),
-                    #InlineKeyboardButton("👑 ExᴀᴍPᴜʀ", callback_data="exampur_txt")
-                ],
-                [
-                    #InlineKeyboardButton("👑 Vɪsɪᴏɴ Iᴀs", callback_data="vision_ias_"),
-                    #InlineKeyboardButton("👑 Pʜʏsɪᴄs Wᴀʟʟᴀʜ", callback_data="pw_") 
-                ],
-                [
-                    InlineKeyboardButton("𝐁 𝐀 𝐂 𝐊", callback_data="modes_")
-                ]
-                ]
+    [
+        InlineKeyboardButton("👑 Kʜᴀɴ Gs", callback_data="khan_"),      # ✅ UNCOMMENTED
+        InlineKeyboardButton("👑 Cᴀʀᴇᴇʀ Wɪʟʟ", callback_data="cw_")    # ✅ UNCOMMENTED
+    ],
+    [
+        InlineKeyboardButton("👑 CʟᴀssPʟᴜs", callback_data="classplus_"),
+        InlineKeyboardButton("👑 Uᴛᴋᴀʀsʜ", callback_data="utkarsh_")
+    ],
+    [
+        InlineKeyboardButton("👑 Appx Login", callback_data="manual_appx"),
+        InlineKeyboardButton("👑 Sᴛᴜᴅʏ IQ", callback_data="iq_")
+    ],
+    [
+        InlineKeyboardButton("𝐁 𝐀 𝐂 𝐊", callback_data="modes_")
+    ]
+]
 
 
 button2 = [
@@ -717,10 +706,24 @@ async def handle_callback(client, query):
     elif query.data == 'token_':
         await pw_token(app, query.message)
         
+    elif query.data == "khan_":                     # ✅ NEW HANDLER
+        await khan_login(app, query.message)
 
+    elif query.data == "cw_":                       # ✅ NEW HANDLER
+        await career_will(app, query.message)
 
+    # ===== CUSTOM BUTTON HANDLERS =====
+    elif query.data == "pwwp":
+        await pwwp_callback(client, query)  # यह पहले से है
 
-  
+    elif query.data == "appxwp":
+        await appxwp_callback(client, query)  # यह पहले से है
+
+    elif query.data == "cpwp":
+        await cpwp_callback(client, query)  # यह पहले से है
+
+    elif query.data == "cds_journey_free":
+        await query.message.edit_text("🎓 **CDS Journey Free** – यह फीचर जल्द आ रहा है!")  # या आपका असली हैंडलर
 
   
 
@@ -838,7 +841,6 @@ def get_apps_by_letter(letter):
     except Exception as e:
         print(f"Error reading appxapis.json: {e}")
         return []
-
 
 def to_small_caps(text):
     normal = "abcdefghijklmnopqrstuvwxyz"
@@ -1081,9 +1083,3 @@ async def html_to_text_command(client: Client, message: Message):
         
     except Exception as e:
         await message.reply_text(f"❌ Error: {str(e)}")
-
-
-
-    
-
-    
